@@ -16,15 +16,11 @@ by @FlyingPhishy\n";
 if (!(extension_loaded('simplexml'))) {
   echo "\nPlease install simplexml.\nsudo apt install php-xml\n";
   exit;
-} else {
-  # DO NOTHING
 }
 
 if (empty($argv[1])) {
   echo "\nPlease specify file: ./nessCIS.php dir/scan.nessus\n";
   exit;
-} else {
-  # DO NOTHING
 }
 
 # PREP A TEMP FILE
@@ -39,25 +35,28 @@ file_put_contents('temp.nessus',$file_contents);
 $xmlFile = simplexml_load_file('temp.nessus');
 $parsed = $xmlFile; 
 
-# SETTING THE STAGE FOR LOOP
-$numberOfNested = $parsed->Report->ReportHost->ReportItem->count();
+# INITIALIZE ARRAY FOR CSV OUTPUT
 $array = [];
-$i = -1;
 
-while ($i <= $numberOfNested) {
-  $item = $parsed->Report->ReportHost->ReportItem[$i];
-  # ADD BELOW TO MY NEW ARRAY
-  $array[$i]['ipAddress'] = $parsed->Report->ReportHost->attributes()->name;
-  $array[$i]['benchmarkName'] = $item[$i]->{'compliance-benchmark-name'};
-  $array[$i]['checkName'] = $item[$i]->{'compliance-check-name'};
-  $array[$i]['result'] = $item[$i]->{'compliance-result'};
-
-  # REMOVE EMPTY ARRAY KEYS
-  $test = strlen($array[$i]['result'][0]);
-  if ($test == 0) {
-    unset($array[$i]);
-  }
-  $i++;
+# LOOP THROUGH EACH ReportHost
+foreach ($parsed->Report->ReportHost as $reportHost) {
+    $ipAddress = (string) $reportHost->attributes()->name;
+    # LOOP THROUGH EACH ReportItem WITHIN THE CURRENT ReportHost
+    foreach ($reportHost->ReportItem as $reportItem) {
+        $benchmarkName = (string) $reportItem->{'compliance-benchmark-name'};
+        $checkName = (string) $reportItem->{'compliance-check-name'};
+        $result = (string) $reportItem->{'compliance-result'};
+        
+        # ONLY ADD TO ARRAY IF RESULT IS NOT EMPTY
+        if (!empty($result)) {
+            $array[] = [
+                'ipAddress' => $ipAddress,
+                'benchmarkName' => $benchmarkName,
+                'checkName' => $checkName,
+                'result' => $result
+            ];
+        }
+    }
 }
 
 # CREATE CSV OUTPUT
@@ -71,5 +70,5 @@ foreach ($array as $line) {
 fclose($outputCSV);
 
 echo "\nDone. Please view file output.csv\n";
-unlink('temp.nessus')
+unlink('temp.nessus');
 ?>
